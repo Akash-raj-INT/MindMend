@@ -33,7 +33,8 @@ MindMend is a Django-based mental health support platform that includes user aut
 - 	emplates/ - Project-level HTML templates
 - static/ - Static assets such as CSS and images
 - media/ - Uploaded media files (excluded from source control)
-- equirements.txt - Python package dependencies
+- 
+equirements.txt - Python package dependencies
 - Dockerfile / docker-compose.yml - Container configuration for deployment
 
 ## Setup and Installation
@@ -72,6 +73,7 @@ docker compose up --build
 
 ## Notes
 
+- Deployed project: https://mindmend-1.onrender.com/
 - db.sqlite3 and media/ are excluded from git via .gitignore.
 - Update environment variables before running in production.
 
