@@ -1,0 +1,203 @@
+from django import forms
+from datetime import timedelta, datetime
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from ..models import MoodEntry, ForumPost, ForumReply, CounsellorBooking, Counsellor, CounsellorReview, UserProfile
+
+
+class UserProfileForm(forms.ModelForm):
+    first_name = forms.CharField(max_length=150, required=False, label='First Name')
+    last_name  = forms.CharField(max_length=150, required=False, label='Last Name')
+
+    class Meta:
+        model = UserProfile
+        fields = ['dob', 'occupation', 'gender', 'show_real_name', 'location_opt_out']
+        widgets = {
+            'dob': forms.DateInput(attrs={'type': 'date'}),
+            'occupation': forms.TextInput(attrs={'placeholder': 'e.g. Student, Engineer'}),
+            'gender': forms.Select(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user:
+            self.fields['first_name'].initial = user.first_name
+            self.fields['last_name'].initial  = user.last_name
+
+
+from ..assessment_data import PHQ9_QUESTIONS, GAD7_QUESTIONS, PSS_QUESTIONS
+
+
+class SignUpForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password1', 'password2']
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if username and User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError('This username already exists. Please choose a different one or login.')
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email and User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('This email is already registered. Please login or use a different email.')
+        return email
+
+
+class MoodEntryForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['energy_level'].required = False
+        self.fields['activities'].required = True
+
+    class Meta:
+        model = MoodEntry
+        fields = ['mood', 'energy_level', 'activities', 'notes', 'date']
+        widgets = {
+            'mood': forms.RadioSelect(),
+            'energy_level': forms.RadioSelect(),
+            'activities': forms.TextInput(attrs={'placeholder': 'e.g. work, sleep, exercise'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'What\'s on your mind? (optional)'}),
+            'date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+
+class ForumPostForm(forms.ModelForm):
+    class Meta:
+        model = ForumPost
+        fields = ['category', 'title', 'content', 'is_anonymous']
+        widgets = {
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'title': forms.TextInput(attrs={'placeholder': 'Post title'}),
+            'content': forms.Textarea(attrs={'rows': 5, 'placeholder': 'Share your thoughts...'}),
+        }
+
+
+class ForumReplyForm(forms.ModelForm):
+    class Meta:
+        model = ForumReply
+        fields = ['content', 'is_anonymous']
+        widgets = {
+            'content': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Write a reply...'}),
+        }
+
+
+class CounsellorBookingForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['counsellor'].queryset = Counsellor.objects.filter(is_active=True)
+
+    def clean(self):
+        cleaned = super().clean()
+        counsellor = cleaned.get('counsellor')
+        booking_date = cleaned.get('date')
+        time_slot = cleaned.get('time_slot')
+
+        if not counsellor or not booking_date or not time_slot:
+            return cleaned
+
+        day_name = booking_date.strftime('%a').lower()  # mon, tue, ...
+        available_tokens = [
+            t.strip().lower()
+            for t in (counsellor.available_days or '').replace('/', ',').replace(' ', ',').split(',')
+            if t.strip()
+        ]
+        # Normalize common full weekday names to 3-letter form.
+        full_to_short = {
+            'monday': 'mon', 'tuesday': 'tue', 'wednesday': 'wed',
+            'thursday': 'thu', 'friday': 'fri', 'saturday': 'sat', 'sunday': 'sun'
+        }
+        normalized = set()
+        for token in available_tokens:
+            normalized.add(full_to_short.get(token, token[:3]))
+
+        day_available = day_name in normalized
+        time_available = (
+            counsellor.available_time_start <= time_slot <= counsellor.available_time_end
+        )
+
+        if not (day_available and time_available):
+            raise forms.ValidationError('The counsellor is not available on this day or time.')
+
+        # ── 30-minute session conflict check ────────────────────────────────
+        # Each session lasts 30 minutes. A new booking at T conflicts with any
+        # existing booking B when the windows [T, T+30) and [B, B+30) overlap,
+        # i.e. when  B < T+30  AND  T < B+30  →  |T - B| < 30 minutes.
+        SESSION_MINUTES = 30
+        session_delta = timedelta(minutes=SESSION_MINUTES)
+
+        # Convert time_slot to a full datetime for arithmetic.
+        requested_dt = datetime.combine(booking_date, time_slot)
+        window_start = requested_dt - session_delta  # exclusive lower bound
+        window_end   = requested_dt + session_delta  # exclusive upper bound
+
+        # Fetch all active bookings for this counsellor on this day.
+        existing_bookings = CounsellorBooking.objects.filter(
+            counsellor=counsellor,
+            date=booking_date,
+        ).exclude(status='cancelled')
+
+        for booking in existing_bookings:
+            existing_dt = datetime.combine(booking_date, booking.time_slot)
+            if window_start < existing_dt < window_end:
+                booked_time = booking.time_slot.strftime('%H:%M')
+                next_available = (existing_dt + session_delta).strftime('%H:%M')
+                raise forms.ValidationError(
+                    f'This counsellor already has a session at {booked_time}. '
+                    f'Each session is {SESSION_MINUTES} minutes. '
+                    f'The next available slot is {next_available} or later.'
+                )
+
+        return cleaned
+
+    def validate_unique(self):
+        """Skip default model validation to avoid duplicate unique_together error."""
+        pass
+
+    class Meta:
+        model = CounsellorBooking
+        fields = ['counsellor', 'date', 'time_slot', 'notes', 'is_anonymous']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'time_slot': forms.TimeInput(attrs={'type': 'time'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Any specific concerns?'}),
+        }
+
+
+class CounsellorReviewForm(forms.ModelForm):
+    class Meta:
+        model = CounsellorReview
+        fields = ['rating', 'review_text']
+        widgets = {
+            'rating': forms.Select(choices=[(i, '★' * i + ' (' + str(i) + '/5)') for i in range(1, 6)]),
+            'review_text': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Share your experience (optional)'}),
+        }
+
+
+class ContactForm(forms.Form):
+    name = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={'placeholder': 'Your name'}))
+    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'placeholder': 'your@email.com'}))
+    subject = forms.CharField(max_length=200, required=True, widget=forms.TextInput(attrs={'placeholder': 'Subject'}))
+    message = forms.CharField(widget=forms.Textarea(attrs={'rows': 5, 'placeholder': 'Your message...'}), required=True)
+
+
+def make_assessment_form(questions, scale_max=3, scale_labels=None):
+    """Create a dynamic form for an assessment (PHQ9, GAD7 use 0-3; PSS uses 0-4)."""
+    if scale_labels is None:
+        scale_labels = ['Not at all', 'Several days', 'More than half', 'Nearly every day']
+    choices = [(i, f"{i} - {scale_labels[i] if i < len(scale_labels) else ''}") for i in range(scale_max + 1)]
+
+    fields = {}
+    for i, q in enumerate(questions):
+        fields[f'q{i}'] = forms.IntegerField(
+            label=q,
+            min_value=0,
+            max_value=scale_max,
+            widget=forms.RadioSelect(choices=choices)
+        )
+    return type('AssessmentForm', (forms.Form,), fields)

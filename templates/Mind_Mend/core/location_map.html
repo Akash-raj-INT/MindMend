@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<div class="min-h-screen bg-[#050b1a] overflow-hidden py-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-6 lg:gap-8 lg:h-[calc(100vh-120px)]">
+
+    <!-- ================= SIDEBAR ================= -->
+    <div class="w-full lg:w-auto border border-white/10 bg-[#0a1428]/40 backdrop-blur-xl flex flex-col overflow-hidden min-h-0 rounded-2xl lg:h-full lg:overflow-y-auto">
+
+        <!-- HEADER -->
+        <div class="p-8 space-y-4">
+            <h2 class="text-3xl font-bold text-white">🌍 User Insights</h2>
+            <p class="text-gray-500 text-sm">Live user tracking dashboard</p>
+        </div>
+
+        <!-- STATS -->
+        <div class="px-6 space-y-3 text-sm">
+            <div class="bg-white/5 p-3 rounded-lg text-white">
+                👥 Active Now: <b>{{ active_now|default:0 }}</b>
+            </div>
+            <div class="bg-white/5 p-3 rounded-lg text-white">
+                🌐 Total Access: <b>{{ stats.total|default:0 }}</b>
+            </div>
+            <div class="bg-white/5 p-3 rounded-lg text-white">
+                📍 GPS Shared: <b>{{ stats.gps_shared|default:0 }}</b>
+            </div>
+            <div class="bg-white/5 p-3 rounded-lg text-white">
+                🌎 Countries: <b>{{ stats.countries|default:0 }}</b>
+            </div>
+        </div>
+
+        <!-- STATE LIST -->
+        <div id="stateList" class="flex-1 min-h-0 overflow-y-auto px-4 mt-6 space-y-3">
+            {% if users_per_state %}
+                {% for row in users_per_state %}
+                <div onclick="focusState('{{ row.state }}')"
+                     class="bg-white/5 p-4 rounded-xl cursor-pointer hover:bg-white/10 transition">
+
+                    <h3 class="text-white font-semibold break-words">
+                        {{ row.state|default:"Unknown" }}
+                        {% if row.country %}, {{ row.country }}{% endif %}
+                    </h3>
+
+                    <p class="text-blue-400 text-sm">
+                        👥 Users: {{ row.count }}
+                    </p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-gray-400 text-sm px-2">No state data</p>
+            {% endif %}
+        </div>
+
+        <!-- FOOTER -->
+        <div class="p-6 border-t border-white/10 text-xs text-gray-500">
+            ✔ Real-time user analytics
+        </div>
+    </div>
+
+    <!-- ================= MAP ================= -->
+    <div class="relative h-[420px] sm:h-[520px] lg:h-full">
+        <div id="map" class="absolute inset-0 w-full h-full rounded-2xl border border-white/10"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ================= BACKEND DATA =================
+const markers = {{ markers_json|safe }};
+
+// ================= MAP =================
+const map = L.map('map').setView([20.5937, 78.9629], 4);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+// ================= STORE MARKERS =================
+let leafletMarkers = [];
+
+// ================= ADD USER MARKERS =================
+markers.forEach(m => {
+    if (m.lat && m.lon) {
+
+        const marker = L.marker([m.lat, m.lon]).addTo(map)
+        .bindPopup(`
+            <div class="text-black">
+                <b>${m.label || "User"}</b><br>
+                ${m.user || "Anonymous"}<br>
+                ${m.date || ""}<br>
+                ${m.page || ""}<br>
+                ${m.source === 'browser' ? '📍 GPS' : 'IP'}
+            </div>
+        `);
+
+        leafletMarkers.push({
+            marker: marker,
+            state: m.state
+        });
+    }
+});
+
+// ================= AUTO FIT =================
+if (leafletMarkers.length > 0) {
+    const bounds = L.latLngBounds(
+        leafletMarkers.map(m => m.marker.getLatLng())
+    );
+    map.fitBounds(bounds.pad(0.2));
+}
+
+// ================= FOCUS STATE =================
+function focusState(state) {
+
+    const filtered = leafletMarkers.filter(m => m.state === state);
+
+    if (filtered.length === 0) return;
+
+    const bounds = L.latLngBounds(
+        filtered.map(m => m.marker.getLatLng())
+    );
+
+    map.fitBounds(bounds.pad(0.3));
+}
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}Complete Payment{% endblock %}
+
+{% block content %}
+
+<div class="min-h-screen bg-[#050b1a] relative overflow-auto pt-4 md:pt-6 pb-20">
+  <div class="absolute top-0 left-1/4 w-[360px] h-[360px] bg-[#00d1b2]/10 rounded-full blur-[120px] animate-pulse"></div>
+
+  <div class="max-w-4xl mx-auto px-4 md:px-12">
+    
+    <div class="text-center mb-10">
+      <h1 class="text-3xl md:text-5xl font-bold text-white mb-4">
+        Checkout &amp; Confirm
+      </h1>
+      <p class="text-gray-400">
+        Review your booking details and complete the payment to finalize your appointment.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+      
+      <!-- Order Summary Column -->
+      <div class="bg-[#0a1428]/80 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl space-y-6">
+        <h3 class="text-xl font-bold text-white mb-6 uppercase tracking-wider text-sm">Booking Summary</h3>
+        
+        <div class="flex items-center gap-4 border-b border-white/10 pb-6">
+          <div class="h-16 w-16 rounded-full border border-white/10 shadow-lg overflow-hidden shrink-0">
+            {% if booking.counsellor.profile_picture %}
+              <img src="{{ booking.counsellor.profile_picture.url }}" alt="{{ booking.counsellor.name }}" class="w-full h-full object-cover">
+            {% else %}
+              <div class="w-full h-full bg-[#111c33] flex items-center justify-center text-xl font-bold text-white">
+                {{ booking.counsellor.name|slice:":1"|upper }}
+              </div>
+            {% endif %}
+          </div>
+          <div>
+            <h4 class="text-white font-bold text-lg">{{ booking.counsellor.name }}</h4>
+            <p class="text-[#00d1b2] text-xs uppercase tracking-widest mt-1">{{ booking.counsellor.specialization }}</p>
+          </div>
+        </div>
+
+        <div class="space-y-4 pt-2">
+            <div class="flex justify-between items-center text-gray-300">
+                <span class="text-sm">Date</span>
+                <span class="font-semibold text-white">{{ booking.date|date:"F j, Y" }}</span>
+            </div>
+            <div class="flex justify-between items-center text-gray-300">
+                <span class="text-sm">Time</span>
+                <span class="font-semibold text-white">{{ booking.time_slot|time:"H:i" }}</span>
+            </div>
+        </div>
+
+        <div class="pt-6 border-t border-white/10 flex justify-between items-end">
+          <div class="text-gray-400 text-sm">Total Due</div>
+          <div class="text-4xl font-bold text-[#00d1b2] shrink-0">
+             ₹{{ booking.counsellor.session_fee|floatformat:"0" }}
+          </div>
+        </div>
+
+        <div class="mt-4 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex flex-col items-center justify-center">
+            <p class="text-orange-400 text-sm font-semibold mb-1">Time remaining to complete payment</p>
+            <p id="countdown-timer" class="text-2xl font-mono text-white tracking-widest">15:00</p>
+        </div>
+      </div>
+
+      <!-- Payment UI Column -->
+      <div class="bg-[#0b162d] border border-emerald-500/20 rounded-[2rem] p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-[#00d1b2]/5 rounded-full blur-[50px]"></div>
+        
+        <h3 class="text-xl font-bold text-white mb-6">Pay with Razorpay</h3>
+
+        <!-- Accepted methods strip -->
+        <div class="flex flex-wrap items-center gap-2 mb-8 p-3 bg-[#111c33] rounded-2xl border border-white/5">
+          <span class="text-[#3395FF] font-bold tracking-tight">razorpay</span>
+          <div class="ml-auto flex flex-wrap gap-1.5">
+            <span class="text-[10px] text-gray-400 bg-white/5 rounded-md px-2 py-1 whitespace-nowrap">UPI</span>
+            <span class="text-[10px] text-gray-400 bg-white/5 rounded-md px-2 py-1 whitespace-nowrap">Card</span>
+            <span class="text-[10px] text-gray-400 bg-white/5 rounded-md px-2 py-1 whitespace-nowrap">NetBanking</span>
+            <span class="text-[10px] text-gray-400 bg-white/5 rounded-md px-2 py-1 whitespace-nowrap">Wallet</span>
+          </div>
+        </div>
+
+        <!-- Hidden verification form submitted by JS after payment -->
+        <form id="razorpay-verify-form" method="POST" action="{% url 'razorpay_payment_verify' booking.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="razorpay_order_id"   id="rzp_order_id">
+          <input type="hidden" name="razorpay_payment_id" id="rzp_payment_id">
+          <input type="hidden" name="razorpay_signature"  id="rzp_signature">
+        </form>
+
+        <p class="text-xs text-gray-400 mb-6 text-center">
+          Secured by Razorpay &mdash; your payment details are never stored on our servers.
+        </p>
+
+        <button id="rzp-pay-btn"
+class="w-full py-4 rounded-xl bg-[#00d1b2] text-[#050b1a] font-bold text-lg hover:bg-[#00b8a5] transition duration-300">          Pay ₹{{ booking.counsellor.session_fee|floatformat:"0" }} Now
+        </button>
+
+        <p id="rzp-error-msg" class="hidden mt-4 text-red-400 text-sm text-center"></p>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Razorpay Checkout SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  var rzpOptions = {
+    key:         "{{ razorpay_key_id }}",
+    amount:      "{{ amount_paise }}",
+    currency:    "INR",
+    name:        "MindMend",
+    description: "Counsellor Session \u2013 {{ booking.counsellor.name }}",
+    order_id:    "{{ razorpay_order_id }}",
+    prefill: {
+      name:  "{{ user_name }}",
+      email: "{{ user_email }}"
+    },
+    theme: { color: "#00d1b2" },
+    handler: function(response) {
+      // Payment authorised — post IDs + signature for server-side verification
+      document.getElementById('rzp_order_id').value   = response.razorpay_order_id;
+      document.getElementById('rzp_payment_id').value = response.razorpay_payment_id;
+      document.getElementById('rzp_signature').value  = response.razorpay_signature;
+      document.getElementById('razorpay-verify-form').submit();
+    },
+    modal: {
+      ondismiss: function() {
+        var el = document.getElementById('rzp-error-msg');
+        el.textContent = 'Payment window closed. Click the button again to retry.';
+        el.classList.remove('hidden');
+      }
+    }
+  };
+
+  document.getElementById('rzp-pay-btn').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('rzp-error-msg').classList.add('hidden');
+    var rzp = new Razorpay(rzpOptions);
+    rzp.on('payment.failed', function(resp) {
+      var el = document.getElementById('rzp-error-msg');
+      el.textContent = 'Payment failed: ' + (resp.error.description || 'Please try again.');
+      el.classList.remove('hidden');
+    });
+    rzp.open();
+  });
+</script>
+
+  </div>
+
+  <script>
+    (function initTimer() {
+      // Get the creation time in seconds (float) and convert to milliseconds
+      const createdAtSecs = parseFloat("{{ booking_timestamp|default:'0' }}");
+      if (!createdAtSecs) return;
+
+      const creationTime = new Date(createdAtSecs * 1000).getTime();
+      const expirationTime = creationTime + (15 * 60 * 1000); // 15 minutes limit
+      const timerDisplay = document.getElementById('countdown-timer');
+      const payBtn = document.getElementById('rzp-pay-btn');
+      const errorMsg = document.getElementById('rzp-error-msg');
+
+      function updateTimer() {
+        const now = new Date().getTime();
+        const distance = expirationTime - now;
+
+        if (distance <= 0) {
+          clearInterval(interval);
+          timerDisplay.textContent = "00:00";
+          timerDisplay.classList.add('text-red-500');
+          if (payBtn) {
+            payBtn.disabled = true;
+            payBtn.classList.add('opacity-50', 'cursor-not-allowed');
+          }
+          if (errorMsg) {
+            errorMsg.innerHTML = 'This reservation has expired. Please <a href="{% url "counsellor_booking" %}" class="underline text-red-300 hover:text-white">book a new session</a>.';
+            errorMsg.classList.remove('hidden');
+          }
+          return;
+        }
+
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        
+        const mStr = minutes < 10 ? "0" + minutes : minutes;
+        const sStr = seconds < 10 ? "0" + seconds : seconds;
+        
+        timerDisplay.textContent = mStr + ":" + sStr;
+
+        // Visual warning when under 2 minutes
+        if (minutes < 2) {
+           timerDisplay.classList.add('text-red-400');
+        }
+      }
+
+      // Initial call and start interval
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+    })();
+  </script>
+{% endblock %}

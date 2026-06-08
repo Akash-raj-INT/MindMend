@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% load profile_tags %}
+{% block title %}Chat with Counsellor{% endblock %}
+{% block content %}
+
+<div class="min-h-screen bg-[#050b1a] relative overflow-hidden pt-4 md:pt-6 pb-8">
+
+  <!-- Background Glow -->
+  <div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[120px] animate-pulse pointer-events-none"></div>
+
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+
+    <!-- Top Bar -->
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+      <div>
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#00d1b2]/30 bg-[#00d1b2]/5 text-[#00d1b2] text-[10px] font-bold tracking-[0.2em] mb-4">
+          💬 LIVE SESSION
+        </div>
+
+        <h1 class="text-3xl md:text-4xl font-bold text-white">Secure Counsellor Chat</h1>
+
+        <p class="text-gray-400 mt-3">
+          <strong class="text-white">{{ booking.counsellor.name }}</strong>
+          — {{ booking.date|date:"l, M d, Y" }} at {{ booking.time_slot|time:"H:i" }}
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        {% if booking.status == 'completed' %}
+        <div class="inline-flex items-center px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium border border-white/10">
+          Session Completed
+        </div>
+        {% endif %}
+
+        {% if request.user.id == booking.counsellor.user_id %}
+        <a href="{% url 'doctor_dashboard' %}"
+           class="px-5 py-3 rounded-xl border border-white/10 bg-white/5 text-white font-medium hover:bg-white/10 transition">
+          ← Doctor Dashboard
+        </a>
+        {% else %}
+        <a href="{% url 'my_bookings' %}"
+           class="px-5 py-3 rounded-xl border border-white/10 bg-white/5 text-white font-medium hover:bg-white/10 transition">
+          ← My Bookings
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if booking.status != 'completed' and booking.status != 'cancelled' %}
+    <div class="mb-6">
+      <form method="post" action="{% url 'finish_session' booking.id %}" onsubmit="return confirm('Finish this session now? This will disable chat and mark it as completed.');">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'counsellor_chat' booking.id %}">
+        <button type="submit"
+                class="px-5 py-3 rounded-xl bg-white/10 text-white hover:bg-red-500 hover:text-white transition font-medium border border-white/10">
+          Finish Session
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Chat Card -->
+    <div class="bg-[#0a1428]/70 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col min-h-[520px]">
+
+      <!-- Chat Header -->
+      <div class="border-b border-white/10 px-6 py-5 bg-[#0a1428]/80 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4 min-w-0">
+          <div class="h-12 w-12 rounded-2xl bg-[#00d1b2]/10 flex items-center justify-center text-[#00d1b2] text-xl shrink-0">
+            🧠
+          </div>
+          <div class="min-w-0">
+            <h2 class="text-white font-semibold truncate">{{ booking.counsellor.name }}</h2>
+            <p class="text-sm text-gray-400">
+              {% if booking.status == 'completed' %}
+                Session closed
+              {% elif booking.status == 'cancelled' %}
+                Session cancelled
+              {% else %}
+                Messages are delivered in real time
+              {% endif %}
+            </p>
+          </div>
+        </div>
+
+        <div class="text-xs uppercase tracking-[0.2em] text-gray-500 hidden sm:block">
+          Secure Chat
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="chatMessages" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-h-[420px]">
+        {% for m in chat_messages %}
+        <div class="flex {% if m.sender_id == request.user.id %}justify-end{% else %}justify-start{% endif %}" data-message-id="{{ m.id }}">
+          <div class="max-w-full sm:max-w-[85%] lg:max-w-[75%] rounded-3xl px-4 py-3 shadow-lg
+                      {% if m.sender_id == request.user.id %}
+                        bg-[#00d1b2] text-[#04111d]
+                      {% else %}
+                        bg-white/5 text-white border border-white/10
+                      {% endif %}">
+            <p class="text-xs opacity-75 mb-1">
+              {{ m.sender_label }}
+              {% if m.sender_id == booking.counsellor.user_id %} (Counsellor){% else %} (Patient){% endif %}
+            </p>
+            <p class="whitespace-pre-wrap break-words text-sm sm:text-base">{{ m.content }}</p>
+            <p class="text-[11px] opacity-70 mt-2">{{ m.created_at|date:"M d, H:i" }}</p>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-gray-500 text-center py-12" id="emptyChatState">
+          No messages yet. Say hello to start the conversation.
+        </p>
+        {% endfor %}
+      </div>
+
+      {% if booking.status == 'completed' or booking.status == 'cancelled' %}
+      <div class="p-4 border-t border-white/10 bg-white/5 text-sm text-gray-300">
+        Chat is disabled because this session is {{ booking.status }}.
+      </div>
+      {% else %}
+      <form method="post" class="p-4 sm:p-5 border-t border-white/10 bg-[#0a1428]/80 flex flex-col sm:flex-row gap-3" id="chatForm">
+        {% csrf_token %}
+        <input type="text"
+               name="content"
+               id="chatInput"
+               placeholder="Type a message..."
+               autocomplete="off"
+               class="flex-1 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-white placeholder-gray-500 outline-none focus:border-[#00d1b2]/50">
+        <button type="submit"
+                class="px-6 py-3 bg-[#00d1b2] text-[#04111d] rounded-2xl font-bold transition sm:w-auto w-full">
+          Send
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <p class="text-sm text-gray-500 mt-3">Messages are delivered in real time.</p>
+  </div>
+</div>
+
+<script>
+(function() {
+    var chatEl = document.getElementById('chatMessages');
+    var chatInput = document.getElementById('chatInput');
+    var chatForm = document.getElementById('chatForm');
+    var csrfInput = chatForm ? chatForm.querySelector('input[name="csrfmiddlewaretoken"]') : null;
+    var csrfToken = csrfInput ? csrfInput.value : '';
+    var apiUrl = "{% url 'booking_messages_api' booking.id %}";
+    var bookingId = {{ booking.id }};
+    var myUserId = {{ request.user.id }};
+    var counsellorUserId = {% if booking.counsellor.user_id %}{{ booking.counsellor.user_id }}{% else %}null{% endif %};
+    var protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    var socket = null;
+    var latestMessageId = 0;
+    var knownMessageIds = {};
+    var pollingTimer = null;
+    var pollInFlight = false;
+
+    if (chatEl) {
+        Array.prototype.forEach.call(chatEl.querySelectorAll('[data-message-id]'), function(node) {
+            var id = Number(node.getAttribute('data-message-id') || 0);
+            if (id > 0) {
+                knownMessageIds[id] = true;
+                if (id > latestMessageId) latestMessageId = id;
+            }
+        });
+        chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function removeEmptyState() {
+        var empty = document.getElementById('emptyChatState');
+        if (empty) empty.remove();
+    }
+
+    function appendMessage(m) {
+        var msgId = Number(m.id || 0);
+        if (msgId && knownMessageIds[msgId]) return;
+
+        if (msgId) {
+            knownMessageIds[msgId] = true;
+            if (msgId > latestMessageId) latestMessageId = msgId;
+        }
+
+        var isMe = m.sender_id === myUserId;
+        var role = m.sender_id === counsellorUserId ? ' (Counsellor)' : ' (Patient)';
+        var div = document.createElement('div');
+        div.className = 'flex ' + (isMe ? 'justify-end' : 'justify-start');
+        if (msgId) div.setAttribute('data-message-id', String(msgId));
+
+        div.innerHTML =
+            '<div class="max-w-full sm:max-w-[85%] lg:max-w-[75%] rounded-3xl px-4 py-3 shadow-lg ' +
+            (isMe ? 'bg-[#00d1b2] text-[#04111d]' : 'bg-white/5 text-white border border-white/10') +
+            '">' +
+            '<p class="text-xs opacity-75 mb-1">' + escapeHtml(m.sender) + role + '</p>' +
+            '<p class="whitespace-pre-wrap break-words text-sm sm:text-base">' + escapeHtml(m.content) + '</p>' +
+            '<p class="text-[11px] opacity-70 mt-2">' + new Date(m.created_at).toLocaleString() + '</p>' +
+            '</div>';
+
+        removeEmptyState();
+        chatEl.appendChild(div);
+        chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function startSocket() {
+        socket = new WebSocket(protocol + window.location.host + '/ws/booking/' + bookingId + '/chat/');
+
+        socket.onmessage = function(event) {
+            try {
+                var data = JSON.parse(event.data);
+                if (data.type === 'chat_message' && data.message) {
+                    appendMessage(data.message);
+                } else if (data.type === 'chat_locked') {
+                    alert(data.message || 'Session is completed. Chat disabled.');
+                }
+            } catch (err) {}
+        };
+
+        socket.onclose = function() {
+            setTimeout(startSocket, 3000);
+        };
+
+        socket.onerror = function() {};
+    }
+
+    async function sendViaHttp(content) {
+        var res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ content: content })
+        });
+
+        if (!res.ok) return;
+        var data = await res.json();
+        if (data && data.message) appendMessage(data.message);
+    }
+
+    async function pollMessages() {
+        if (pollInFlight) return;
+        pollInFlight = true;
+
+        try {
+            var url = apiUrl + '?after_id=' + encodeURIComponent(String(latestMessageId || 0));
+            var res = await fetch(url, { credentials: 'same-origin' });
+            if (!res.ok) return;
+            var data = await res.json();
+            var list = (data && data.messages) ? data.messages : [];
+            list.forEach(appendMessage);
+        } catch (err) {
+        } finally {
+            pollInFlight = false;
+        }
+    }
+
+    startSocket();
+    pollMessages();
+    pollingTimer = setInterval(pollMessages, 2000);
+
+    if (chatForm) {
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var content = (chatInput.value || '').trim();
+            if (!content) return;
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ content: content }));
+            } else {
+                sendViaHttp(content);
+            }
+
+            chatInput.value = '';
+        });
+    }
+})();
+</script>
+
+{% endblock %}

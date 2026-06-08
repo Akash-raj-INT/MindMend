@@ -1,0 +1,393 @@
+{% load static %}
+{% load profile_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MindMend{% endblock %} | AI-Enabled Health Awareness & Support</title>
+
+    <!-- ================= GOOGLE ANALYTICS ================= -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-SMT1DXHS30"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-SMT1DXHS30');
+</script>
+
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: '#2d6a4f', light: '#40916c', dark: '#1b4332' },
+                        accent: '#95d5b2'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Playfair Display', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=3.1">
+</head>
+
+<body class="min-h-screen flex flex-col bg-[#050b1a] text-white font-sans overflow-x-hidden pt-[4rem] sm:pt-[5rem] md:pt-[6rem]">
+
+    <!-- ================= NAVBAR ================= -->
+    <header class="fixed top-0 left-0 right-0 z-[9999] px-2 sm:px-4 md:px-6 pt-2 sm:pt-3 md:pt-4">
+        <nav class="max-w-7xl mx-auto rounded-2xl px-3 sm:px-4 md:px-6 lg:px-8 py-2.5 sm:py-3 md:py-4 flex items-center justify-between bg-[#0a1428] border border-white/10 shadow-xl">
+            
+            <!-- LOGO -->
+            <a href="{% url 'home' %}" class="flex items-center gap-3">
+                {% if True %}
+                <div class="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden">
+                    <img src="{% static 'images/mindmend-logo.png' %}" alt="MindMend" class="h-8 w-8 object-contain">
+                </div>
+                {% endif %}
+                <div>
+                    <h1 class="text-xl font-bold text-white">MindMend</h1>
+                    <p class="text-xs text-[#00d1b2]">Safe space for healing</p>
+                </div>
+            </a>
+
+            <!-- MOBILE BUTTON -->
+            <button id="menu-btn" class="md:hidden p-2 rounded-lg text-white hover:bg-white/10 transition" aria-label="Toggle menu" aria-controls="mobile-menu" aria-expanded="false">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+
+            <!-- DESKTOP MENU -->
+            <div class="hidden md:flex items-center gap-6 lg:gap-8">
+                <a href="{% url 'home' %}" class="font-bold transition {% if request.resolver_match.url_name == 'home' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">HOME</a>
+                <a href="{% url 'chat' %}" class="font-bold transition {% if request.resolver_match.url_name == 'chat' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">AI CHAT</a>
+                <a href="{% url 'assessments' %}" class="font-bold transition {% if request.resolver_match.url_name == 'assessments' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">ASSESSMENTS</a>
+                <a href="{% url 'counsellor_booking' %}" class="font-bold transition {% if request.resolver_match.url_name == 'counsellor_booking' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">COUNSELLOR</a>
+
+                {% if user.is_authenticated %}
+                    <a href="{% url 'mood_tracker' %}" class="font-bold transition {% if request.resolver_match.url_name == 'mood_tracker' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">MOOD</a>
+                {% endif %}
+
+                <a href="{% url 'contact_us' %}" class="font-bold transition {% if request.resolver_match.url_name == 'contact_us' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">CONTACT</a>
+
+                {% if user.is_authenticated %}
+                    <!-- DASHBOARD DROPDOWN -->
+                    <div class="relative" id="dashboardDropdown">
+                        <button type="button" id="dashboardDropdownBtn" class="flex items-center gap-1 font-bold transition {% if 'dashboard' in request.path or 'survey' in request.path %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">
+                            <!-- Hamburger (three lines) -->
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                            </svg>
+                        </button>
+
+                        <div id="dashboardDropdownMenu" class="absolute right-0 mt-2 w-56 bg-[#0a1428] rounded-xl border border-white/10 shadow-xl opacity-0 invisible transition-all duration-200 z-[9999]">
+                            <a href="{% url 'dashboard' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5 rounded-t-xl">Dashboard</a>
+                            
+                            
+                            <a href="{% url 'doctor_dashboard' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5">Doctor Panel</a>
+                            <a href="{% url 'forum_list' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5">Support Forum</a>
+                            <a href="{% url 'location_map' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5">Location Map</a>
+                            <a href="{% url 'mental_health_heatmap' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5">Heatmap</a>
+                            <a href="{% url 'survey_analytics' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5">Survey Analytics</a>
+                            <a href="{% url 'survey_sentiment_dashboard' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5">Survey Sentiment</a>
+                            <a href="{% url 'resources' %}" class="block px-4 py-3 hover:text-[#00d1b2] hover:bg-white/5">Helplines</a>
+                            <div class="border-t border-white/10"></div>
+                            <a href="{% url 'user_profile' %}" class="px-4 py-3 flex items-center gap-2 text-[#00d1b2] text-sm font-semibold hover:bg-white/5 transition">
+                                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                {{ user|display_name }}
+                            </a>
+                            <div class="border-t border-white/10"></div>
+                            <a href="{% url 'logout' %}" class="block px-4 py-3 text-red-400 hover:bg-white/5 rounded-b-xl">Logout</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{% url 'resources' %}" class="hover:text-[#00d1b2] font-bold transition">HELPLINES</a>
+                    <a href="{% url 'login' %}" class="hover:text-[#00d1b2] font-bold transition">LOGIN</a>
+                    <a href="{% url 'register' %}" class="bg-[#00d1b2] text-[#04111f] px-4 py-2 rounded-xl font-bold hover:opacity-90 transition">SIGN UP</a>
+                {% endif %}
+            </div>
+        </nav>
+
+        <!-- MOBILE MENU -->
+        <div id="mobile-menu" class="hidden md:hidden max-w-7xl mx-auto mt-2 bg-[#0a1428] border border-white/10 rounded-2xl p-4 space-y-2 shadow-xl">
+            <a href="{% url 'home' %}" class="block py-2 font-bold {% if request.resolver_match.url_name == 'home' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">HOME</a>
+            <a href="{% url 'chat' %}" class="block py-2 font-bold {% if request.resolver_match.url_name == 'chat' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">AI CHAT</a>
+            <a href="{% url 'assessments' %}" class="block py-2 font-bold {% if request.resolver_match.url_name == 'assessments' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">ASSESSMENTS</a>
+            <a href="{% url 'counsellor_booking' %}" class="block py-2 font-bold {% if request.resolver_match.url_name == 'counsellor_booking' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">COUNSELLOR</a>
+
+            {% if user.is_authenticated %}
+                <a href="{% url 'mood_tracker' %}" class="block py-2 font-bold {% if request.resolver_match.url_name == 'mood_tracker' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">MOOD</a>
+            {% endif %}
+
+            <a href="{% url 'contact_us' %}" class="block py-2 font-bold {% if request.resolver_match.url_name == 'contact_us' %}text-[#00d1b2]{% else %}hover:text-[#00d1b2]{% endif %}">CONTACT</a>
+
+            <hr class="border-white/10">
+
+            {% if user.is_authenticated %}
+                <p class="text-xs uppercase text-white/50 pt-2">Dashboard menu</p>
+                <a href="{% url 'dashboard' %}" class="block py-2 {% if request.resolver_match.url_name == 'dashboard' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Dashboard</a>
+                <a href="{% url 'doctor_dashboard' %}" class="block py-2 {% if request.resolver_match.url_name == 'doctor_dashboard' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Doctor Panel</a>
+                <a href="{% url 'forum_list' %}" class="block py-2 {% if request.resolver_match.url_name == 'forum_list' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Support Forum</a>
+                <a href="{% url 'location_map' %}" class="block py-2 {% if request.resolver_match.url_name == 'location_map' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Location Map</a>
+                <a href="{% url 'mental_health_heatmap' %}" class="block py-2 {% if request.resolver_match.url_name == 'mental_health_heatmap' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Heatmap</a>
+                <a href="{% url 'survey_analytics' %}" class="block py-2 {% if request.resolver_match.url_name == 'survey_analytics' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Survey Analytics</a>
+                <a href="{% url 'survey_sentiment_dashboard' %}" class="block py-2 {% if request.resolver_match.url_name == 'survey_sentiment_dashboard' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Survey Sentiment</a>
+                <a href="{% url 'resources' %}" class="block py-2 {% if request.resolver_match.url_name == 'resources' %}text-[#00d1b2] font-bold{% else %}hover:text-[#00d1b2]{% endif %}">Helplines</a>
+                <a href="{% url 'logout' %}" class="block py-2 text-red-400">Logout</a>
+            {% else %}
+                <a href="{% url 'forum_list' %}" class="block py-2 hover:text-[#00d1b2]">Support Forum</a>
+                <a href="{% url 'resources' %}" class="block py-2 hover:text-[#00d1b2]">Helplines</a>
+                <a href="{% url 'login' %}" class="block py-2 hover:text-[#00d1b2]">Login</a>
+                <a href="{% url 'register' %}" class="block mt-2 bg-[#00d1b2] text-[#04111f] px-4 py-2 rounded-xl font-bold text-center">Sign Up</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- ================= MAIN CONTENT ================= -->
+    <main class="flex-1 pb-8 pt-0 sm:pt-4">
+        {% block show_back_button %}
+        <div class="fixed-back-button-wrapper">
+            <a href="#" onclick="history.back(); return false;" class="inline-flex items-center gap-1 text-[#00d1b2] hover:text-[#7ef5df] font-medium transition text-sm" aria-label="Go back">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                <span>Back</span>
+            </a>
+        </div>
+        {% endblock %}
+
+        {% if messages %}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4" id="toast-container">
+            {% for message in messages %}
+            <div class="toast-msg rounded-xl p-4 mb-3 flex items-center justify-between border transition-all duration-500 opacity-100
+                {% if message.tags == 'error' %}
+                    bg-red-500/10 text-red-200 border-red-500/30
+                {% elif message.tags == 'success' %}
+                    bg-[#00d1b2]/10 text-[#00d1b2] border-[#00d1b2]/30
+                {% else %}
+                    bg-blue-500/10 text-blue-200 border-blue-500/30
+                {% endif %}">
+                <span>{{ message }}</span>
+                <button type="button" class="text-lg hover:opacity-70 ml-4 shrink-0" onclick="dismissToast(this.parentElement)">×</button>
+            </div>
+            {% endfor %}
+        </div>
+        <script>
+        (function () {
+            function dismissToast(el) {
+                if (!el) return;
+                el.style.transition = 'opacity 0.5s ease, max-height 0.4s ease, margin 0.4s ease, padding 0.4s ease';
+                el.style.opacity = '0';
+                el.style.maxHeight = el.offsetHeight + 'px';
+                setTimeout(function () {
+                    el.style.maxHeight = '0';
+                    el.style.marginBottom = '0';
+                    el.style.paddingTop = '0';
+                    el.style.paddingBottom = '0';
+                }, 500);
+                setTimeout(function () { el.remove(); }, 900);
+            }
+            window.dismissToast = dismissToast;
+
+            document.querySelectorAll('.toast-msg').forEach(function (el) {
+                setTimeout(function () { dismissToast(el); }, 5000);
+            });
+        })();
+        </script>
+        {% endif %}
+
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- ================= COOKIE CONSENT BANNER ================= -->
+    <div id="gdpr-banner" class="fixed bottom-0 left-0 right-0 bg-[#08101f]/97 backdrop-blur-md border-t border-[#00d1b2]/30 px-4 py-4 z-[99999] hidden shadow-2xl">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-6">
+            <div class="flex items-start gap-3">
+                <span class="text-xl shrink-0 mt-0.5">🍪</span>
+                <p class="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                    We use essential cookies for login sessions and optional location analytics for regional insights.
+                    All chat data is <strong class="text-white">encrypted at rest</strong>.
+                    <a href="{% url 'privacy_policy' %}" class="text-[#00d1b2] hover:underline font-medium ml-1">Privacy Policy →</a>
+                </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <button id="gdpr-decline" class="px-3 py-1.5 text-xs sm:text-sm text-gray-400 hover:text-white border border-white/10 rounded-lg transition">Decline</button>
+                <button id="gdpr-accept" class="px-5 py-1.5 sm:px-6 sm:py-2 text-xs sm:text-sm font-bold bg-[#00d1b2] text-[#04111f] rounded-lg hover:opacity-90 transition">Accept All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="border-t border-white/10 py-5 text-center text-white/90 bg-[#08101f]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <div class="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden">
+                        <img src="{% static 'images/mindmend-logo.png' %}" alt="MindMend" class="h-7 w-7 object-contain">
+                    </div>
+                    <div class="text-left">
+                        <h2 class="font-bold text-lg text-white leading-tight">MindMend</h2>
+                        <p class="text-[0.625rem] font-bold tracking-[0.28em] text-[#00d1b2]">SAFE SPACE FOR HEALING</p>
+                    </div>
+                </div>
+                <p class="text-gray-400 text-xs mt-0.5">
+                    Stigma-free mental health support. In crisis? Call
+                    <strong class="text-white">KIRAN 1800-599-0019</strong> or
+                    <strong class="text-white">Tele-MANAS 14416</strong> (24/7)
+                </p>
+                <div class="flex items-center gap-3 mt-1">
+                    <a href="{% url 'privacy_policy' %}" class="text-xs text-[#00d1b2] hover:underline flex items-center gap-1">🛡️ Privacy Policy</a>
+                    <span class="text-white/20">·</span>
+                    <a href="{% url 'contact_us' %}" class="text-xs text-gray-500 hover:text-gray-300 transition">Contact Us</a>
+                    <span class="text-white/20">·</span>
+                    <button onclick="localStorage.removeItem('gdpr_consent'); document.getElementById('gdpr-banner').classList.remove('hidden');" class="text-xs text-gray-500 hover:text-gray-300 transition">Cookie Settings</button>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ================= JS ================= -->
+    <script>
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+
+        const btn = document.getElementById("menu-btn");
+        const menu = document.getElementById("mobile-menu");
+
+        if (btn && menu) {
+            btn.addEventListener("click", () => {
+                const isHidden = menu.classList.toggle("hidden");
+                btn.setAttribute("aria-expanded", (!isHidden).toString());
+            });
+
+            menu.querySelectorAll("a").forEach((link) => {
+                link.addEventListener("click", () => {
+                    menu.classList.add("hidden");
+                    btn.setAttribute("aria-expanded", "false");
+                });
+            });
+        }
+
+        const dropdownBtn = document.getElementById("dashboardDropdownBtn");
+        if (dropdownBtn) {
+            dropdownBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                const dropdownMenu = document.getElementById("dashboardDropdownMenu");
+                if (dropdownMenu) {
+                    dropdownMenu.classList.toggle("opacity-0");
+                    dropdownMenu.classList.toggle("invisible");
+                    dropdownMenu.classList.toggle("opacity-100");
+                    dropdownMenu.classList.toggle("visible");
+                }
+            });
+        }
+
+        document.addEventListener("click", () => {
+            const dropdownMenu = document.getElementById("dashboardDropdownMenu");
+            if (dropdownMenu && dropdownMenu.classList.contains("visible")) {
+                dropdownMenu.classList.add("opacity-0", "invisible");
+                dropdownMenu.classList.remove("opacity-100", "visible");
+            }
+        });
+    </script>
+
+    <script>
+        (function () {
+            const LAST_KEY = 'mindmend_geo_last_sent_at';
+            const CONSENT_KEY = 'gdpr_consent';
+            const HOURS_BETWEEN_UPDATES = 6;
+            
+            const banner = document.getElementById('gdpr-banner');
+            const acceptBtn = document.getElementById('gdpr-accept');
+            const declineBtn = document.getElementById('gdpr-decline');
+
+            if (!localStorage.getItem(CONSENT_KEY)) {
+                banner.classList.remove('hidden');
+            }
+
+            if (acceptBtn && declineBtn) {
+                acceptBtn.addEventListener('click', () => {
+                    localStorage.setItem(CONSENT_KEY, 'true');
+                    banner.classList.add('hidden');
+                    if (navigator.geolocation) sendCoords();
+                });
+                declineBtn.addEventListener('click', () => {
+                    localStorage.setItem(CONSENT_KEY, 'false');
+                    banner.classList.add('hidden');
+                });
+            }
+
+            if (!navigator.geolocation || localStorage.getItem(CONSENT_KEY) !== 'true') return;
+
+            function shouldSendNow() {
+                const last = parseInt(localStorage.getItem(LAST_KEY) || '0', 10);
+                if (!last) return true;
+                return (Date.now() - last) > (HOURS_BETWEEN_UPDATES * 60 * 60 * 1000);
+            }
+
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            function sendCoords() {
+                if (!shouldSendNow()) return;
+                const csrftoken = getCookie('csrftoken') || '{{ csrf_token }}';
+                navigator.geolocation.getCurrentPosition(function (pos) {
+                    fetch('{% url "share_location_api" %}', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: JSON.stringify({
+                            lat: pos.coords.latitude,
+                            lon: pos.coords.longitude
+                        })
+                    }).then(function () {
+                        localStorage.setItem(LAST_KEY, String(Date.now()));
+                    }).catch(function () {});
+                }, function () {}, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000
+                });
+            }
+
+            if (navigator.permissions && navigator.permissions.query) {
+                navigator.permissions.query({ name: 'geolocation' }).then(function (res) {
+                    if (res.state === 'granted') sendCoords();
+                }).catch(function () {});
+            }
+        })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

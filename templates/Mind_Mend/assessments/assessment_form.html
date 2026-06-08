@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}{{ assessment_title }}{% endblock %}
+
+{% block content %}
+<div class="assessment-shell min-h-[calc(100vh-96px)] bg-[#050b1a] relative overflow-auto pt-2 md:pt-4 pb-4 text-white">
+
+  <!-- Background Glow -->
+  <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#00d1b2]/10 rounded-full blur-[120px]"></div>
+  <div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[120px]"></div>
+
+  <div class="max-w-4xl mx-auto px-6 relative z-10">
+
+    <div class="assessment-card bg-[#0b162d]/80 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-6 md:p-8 shadow-2xl relative overflow-hidden">
+
+      <!-- Progress -->
+      <div class="absolute top-0 left-0 w-full h-[6px] bg-white/5">
+        <div id="progressBar" class="h-full bg-gradient-to-r from-[#00d1b2] to-purple-500 transition-all duration-500 rounded-r-full" style="width: 0%;"></div>
+      </div>
+
+      <!-- Header -->
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-5 mb-6">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-bold uppercase tracking-wide">{{ assessment_heading }}</h2>
+          <p class="text-gray-400 mt-3">{{ assessment_intro }}</p>
+          <p id="questionCount" class="text-xs text-gray-500 uppercase tracking-[0.25em] mt-3"></p>
+        </div>
+
+        <div id="progressPercent" class="h-14 w-14 shrink-0 flex items-center justify-center rounded-full border border-white/10 text-[#00d1b2] font-bold text-sm bg-white/5">
+          0%
+        </div>
+      </div>
+
+      <form method="post" action="" id="assessmentForm">
+        {% csrf_token %}
+
+        <div id="questionsWrapper">
+          {% for q in questions %}
+          <div class="question-step {% if not forloop.first %}hidden{% endif %}" data-step="{{ forloop.counter0 }}">
+            <h3 class="text-[clamp(1.35rem,2.3vw,2.2rem)] font-bold mb-6 leading-snug">
+              {{ forloop.counter }}. {{ q }}
+            </h3>
+
+            <div class="grid gap-3">
+              {% for value, label in options %}
+              <label class="option-card cursor-pointer block">
+                <input
+                  type="radio"
+                  name="q{{ forloop.parentloop.counter0 }}"
+                  value="{{ value }}"
+                  required
+                  class="hidden peer"
+                  id="{{ input_prefix }}_{{ forloop.parentloop.counter0 }}_{{ value }}"
+                >
+                <div class="option-display w-full text-left px-6 md:px-8 py-4 rounded-2xl border border-white/10 font-semibold bg-[#111c33]/80 text-gray-300 transition duration-200 hover:bg-[#16213d]/80 hover:border-[#00d1b2]/30">
+                  <span class="block text-sm md:text-base">{{ label }}</span>
+                </div>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Buttons -->
+        <div class="assessment-actions mt-8 flex items-center justify-between gap-4">
+          <button
+            type="button"
+            id="prevBtn"
+            class="text-gray-500 hover:text-white font-bold uppercase transition disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              id="nextBtn"
+              disabled
+              class="px-6 py-3 bg-white/5 border border-white/10 text-gray-500 rounded-xl font-bold transition cursor-not-allowed"
+            >
+              Next →
+            </button>
+
+            <button
+              type="submit"
+              id="submitBtn"
+              class="hidden px-8 py-3 bg-[#00d1b2] text-[#050b1a] rounded-xl font-bold hover:bg-[#00bfa5] transition"
+            >
+              See Results
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  html, body {
+    height: 100%;
+    overflow: auto;
+  }
+
+  main {
+    min-height: calc(100vh - 96px);
+    overflow: auto;
+    padding-bottom: 0 !important;
+  }
+
+  main > div.w-full {
+    display: none;
+  }
+
+  footer {
+    display: block;
+  }
+
+  @media (max-height: 820px) {
+    .assessment-shell {
+      padding-top: 1rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .assessment-card {
+      padding: 1.25rem;
+    }
+  }
+
+  @media (max-height: 740px) {
+    .assessment-shell {
+      padding-top: 0.75rem;
+    }
+
+    .assessment-card {
+      padding: 1rem;
+      border-radius: 2rem;
+    }
+  }
+
+  body.assessment-last .assessment-card {
+    padding-bottom: 1.25rem;
+  }
+
+  body.assessment-last .assessment-actions {
+    margin-top: 1.25rem;
+  }
+
+  body.assessment-last .question-step h3 {
+    margin-bottom: 1rem;
+  }
+
+  /* Selected option highlight */
+  .option-card input:checked + .option-display {
+    background-color: rgba(0, 209, 178, 0.12) !important;
+    border-color: #00d1b2 !important;
+    color: #ffffff !important;
+  }
+
+  /* Next button states */
+  #nextBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  #nextBtn.next-active {
+    background: linear-gradient(135deg, #00d1b2, #8b5cf6);
+    border-color: transparent;
+    color: #050b1a;
+    cursor: pointer;
+    opacity: 1;
+  }
+
+  .submit-faded {
+    background-color: #6b7280 !important;
+    cursor: not-allowed !important;
+  }
+
+  .submit-active {
+    background-color: #34d399 !important;
+  }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const steps = document.querySelectorAll(".question-step");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const submitBtn = document.getElementById("submitBtn");
+  const progressBar = document.getElementById("progressBar");
+  const progressPercent = document.getElementById("progressPercent");
+  const questionCount = document.getElementById("questionCount");
+
+  let currentStep = 0;
+
+  function updateProgress() {
+    const progress = ((currentStep + 1) / steps.length) * 100;
+    progressBar.style.width = progress + "%";
+    progressPercent.textContent = Math.round(progress) + "%";
+    questionCount.textContent = `QUESTION ${currentStep + 1} OF ${steps.length}`;
+  }
+
+  function isCurrentStepAnswered() {
+    const currentQuestion = steps[currentStep];
+    const checked = currentQuestion.querySelector('input[type="radio"]:checked');
+    return !!checked;
+  }
+
+  function updateNextBtnState() {
+    const answered = isCurrentStepAnswered();
+    if (answered) {
+      nextBtn.disabled = false;
+      nextBtn.classList.add('next-active');
+    } else {
+      nextBtn.disabled = true;
+      nextBtn.classList.remove('next-active');
+    }
+  }
+
+  function updateSubmitStyle() {
+    if (currentStep === steps.length - 1) {
+      if (isCurrentStepAnswered()) {
+        submitBtn.classList.remove('submit-faded');
+        submitBtn.classList.add('submit-active');
+        submitBtn.disabled = false;
+      } else {
+        submitBtn.classList.add('submit-faded');
+        submitBtn.classList.remove('submit-active');
+        submitBtn.disabled = true;
+      }
+    }
+  }
+
+  function attachRadioListeners(stepIndex) {
+    const stepEl = steps[stepIndex];
+    const radios = stepEl.querySelectorAll('input[type="radio"]');
+    radios.forEach(radio => {
+      radio.addEventListener('change', function () {
+        if (stepIndex === steps.length - 1) {
+          updateSubmitStyle();
+        } else {
+          updateNextBtnState();
+        }
+      });
+    });
+  }
+
+  function showStep(index) {
+    steps.forEach((step, i) => {
+      if (i === index) {
+        step.classList.remove("hidden");
+      } else {
+        step.classList.add("hidden");
+      }
+    });
+
+    prevBtn.disabled = index === 0;
+
+    if (index === steps.length - 1) {
+      nextBtn.classList.add("hidden");
+      submitBtn.classList.remove("hidden");
+      updateSubmitStyle();
+    } else {
+      nextBtn.classList.remove("hidden");
+      submitBtn.classList.add("hidden");
+      updateNextBtnState();
+    }
+
+    document.body.classList.toggle("assessment-last", index === steps.length - 1);
+    updateProgress();
+  }
+
+  // Attach radio change listeners to all steps
+  steps.forEach((_, i) => attachRadioListeners(i));
+
+  nextBtn.addEventListener("click", function () {
+    if (!isCurrentStepAnswered() || nextBtn.disabled) return;
+    if (currentStep < steps.length - 1) {
+      currentStep++;
+      showStep(currentStep);
+    }
+  });
+
+  prevBtn.addEventListener("click", function () {
+    if (currentStep > 0) {
+      currentStep--;
+      showStep(currentStep);
+    }
+  });
+
+  showStep(currentStep);
+});
+</script>
+{% endblock %}
