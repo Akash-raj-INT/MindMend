@@ -1,6 +1,7 @@
 ﻿# MindMend
 
 MindMend is a Django-based mental health support platform that includes user authentication, assessments, counsellor booking, chat, forums, and analytics features.
+Deployed project: https://mindmend-1.onrender.com/
 
 ## Key Features
 
